@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Demo 展示{% endblock %}</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="/">Demo<span class="accent">Showcase</span></a>
+      <nav class="nav">
+        {% for category in categories %}
+        <a href="#{{ category.slug }}">{{ category.name }}</a>
+        {% endfor %}
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2026 Demo Showcase. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <div id="demo-modal" class="modal" hidden>
+    <div class="modal-backdrop" data-close-modal></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <span id="modal-demo-name"></span>
+        <button class="modal-close" data-close-modal aria-label="关闭">&times;</button>
+      </div>
+      <iframe id="demo-iframe" title="Demo 预览" src=""></iframe>
+    </div>
+  </div>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>

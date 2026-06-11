@@ -1,0 +1,22 @@
+services:
+  app:
+    build: .
+    image: ${IMAGE:-demo-os:latest}
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data/demos:/app/data/demos
+      - ./data/thumbnails:/app/data/thumbnails
+    ports:
+      - "127.0.0.1:8000:8000"
+    networks:
+      - default
+      - mysql_net
+
+networks:
+  # 复用 VPS 上已有 MySQL 容器所在的 docker 网络，
+  # 实际名称请根据 VPS 上 `docker network ls` 的结果调整。
+  mysql_net:
+    external: true
+    name: mysql_net

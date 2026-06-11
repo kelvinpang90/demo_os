@@ -1,0 +1,53 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Demo 管理{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Demo 管理</h1>
+  <a class="cta-button" href="/admin/demos/new">+ 新增 Demo</a>
+</div>
+
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>缩略图</th>
+      <th>名称</th>
+      <th>Slug</th>
+      <th>分类</th>
+      <th>浏览次数</th>
+      <th>排序</th>
+      <th>操作</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for demo in demos %}
+    <tr>
+      <td>
+        <img class="thumb-preview" src="{{ demo.thumbnail_path or '/static/img/placeholder.svg' }}" alt="{{ demo.name }}" />
+      </td>
+      <td>{{ demo.name }}</td>
+      <td>{{ demo.slug }}</td>
+      <td>{{ demo.category.name }}</td>
+      <td>{{ demo.view_count }}</td>
+      <td>{{ demo.sort_order }}</td>
+      <td class="actions">
+        <a href="/admin/demos/{{ demo.id }}/edit">编辑</a>
+        <form action="/admin/demos/{{ demo.id }}/reset-views" method="post" class="inline-form"
+          onsubmit="return confirm('确定将浏览次数重置为 0 吗？')">
+          <button type="submit" class="link-button">重置浏览次数</button>
+        </form>
+        <form action="/admin/demos/{{ demo.id }}/delete" method="post" class="inline-form"
+          onsubmit="return confirm('确定删除该 Demo 吗？')">
+          <button type="submit" class="link-button danger">删除</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="7">暂无 Demo</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endblock %}

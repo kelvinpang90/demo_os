@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>管理员登录 — Demo 展示</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+  <link rel="stylesheet" href="/static/css/admin.css" />
+</head>
+<body class="admin-body">
+  <div class="login-page">
+    <form class="login-card" method="post" action="/admin/login">
+      <h1>管理员登录</h1>
+      {% if error %}
+      <p class="form-error">{{ error }}</p>
+      {% endif %}
+      <label>
+        用户名
+        <input type="text" name="username" required autofocus />
+      </label>
+      <label>
+        密码
+        <input type="password" name="password" required />
+      </label>
+      <button type="submit" class="cta-button">登录</button>
+    </form>
+  </div>
+</body>
+</html>

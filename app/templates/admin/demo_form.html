@@ -1,0 +1,90 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ "编辑 Demo" if demo else "新增 Demo" }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>{{ "编辑 Demo" if demo else "新增 Demo" }}</h1>
+  <a href="/admin/demos">&larr; 返回列表</a>
+</div>
+
+{% if error %}
+<p class="form-error">{{ error }}</p>
+{% endif %}
+{% if msg %}
+<p class="form-success">{{ msg }}</p>
+{% endif %}
+
+<form
+  class="admin-form"
+  method="post"
+  action="{{ '/admin/demos/%d/edit' % demo.id if demo else '/admin/demos/new' }}"
+  enctype="multipart/form-data"
+>
+  <label>
+    名称
+    <input type="text" name="name" value="{{ demo.name if demo else '' }}" required />
+  </label>
+  <label>
+    Slug（对应文件目录名）
+    <input type="text" name="slug" value="{{ demo.slug if demo else '' }}" required />
+  </label>
+  <label>
+    所属分类
+    <select name="category_id" required>
+      {% for category in categories %}
+      <option value="{{ category.id }}" {% if demo and demo.category_id == category.id %}selected{% endif %}>
+        {{ category.name }}
+      </option>
+      {% endfor %}
+    </select>
+  </label>
+  <label>
+    描述（可选）
+    <textarea name="description" rows="3">{{ demo.description or '' if demo else '' }}</textarea>
+  </label>
+  <label>
+    排序
+    <input type="number" name="sort_order" value="{{ demo.sort_order if demo else 0 }}" />
+  </label>
+
+  <div class="form-field">
+    <span class="form-label">缩略图</span>
+    {% if demo and demo.thumbnail_path %}
+    <img class="thumb-preview" src="{{ demo.thumbnail_path }}" alt="当前缩略图" />
+    <label class="checkbox-label">
+      <input type="checkbox" name="remove_thumbnail" value="true" /> 删除当前缩略图（恢复默认占位图）
+    </label>
+    {% endif %}
+    <input type="file" name="thumbnail" accept=".jpg,.jpeg,.png,.webp" />
+  </div>
+
+  <button type="submit" class="cta-button">保存</button>
+</form>
+
+{% if demo %}
+<div class="form-field">
+  <span class="form-label">Demo 文件</span>
+  <p>
+    {% if has_files %}
+    已上传（包含 index.html） &mdash;
+    <a href="/demos/{{ demo.slug }}/index.html" target="_blank" rel="noopener">预览</a>
+    {% else %}
+    尚未上传
+    {% endif %}
+  </p>
+
+  <form class="upload-form" method="post" action="/admin/demos/{{ demo.id }}/files/zip" enctype="multipart/form-data">
+    <input type="file" name="file" accept=".zip" required />
+    <button type="submit" class="cta-button">上传 ZIP</button>
+  </form>
+
+  <form class="upload-form" method="post" action="/admin/demos/{{ demo.id }}/files/folder" enctype="multipart/form-data">
+    <input type="file" name="files" webkitdirectory directory multiple required />
+    <button type="submit" class="cta-button">上传文件夹</button>
+  </form>
+
+  <p class="form-hint">上传将替换该 Demo 现有文件，根目录（或 ZIP 内唯一的顶层文件夹）须包含 index.html。</p>
+</div>
+{% endif %}
+{% endblock %}

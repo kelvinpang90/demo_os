@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Demo 展示 — 首页{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <div class="container hero-inner">
+    <h1>探索我们的 <span class="accent">Demo</span> 作品集</h1>
+    <p>精选网站模板、应用界面与数据看板，点击卡片即可在线预览</p>
+    <a href="#{{ categories[0].slug if categories else '' }}" class="cta-button">开始浏览</a>
+  </div>
+</section>
+
+{% for category in categories %}
+<section class="category-section" id="{{ category.slug }}">
+  <div class="container">
+    <h2 class="category-title">{{ category.name }}</h2>
+    {% if category.description %}
+    <p class="category-description">{{ category.description }}</p>
+    {% endif %}
+
+    <div class="demo-grid">
+      {% for demo in category.demos %}
+      <article class="demo-card" data-slug="{{ demo.slug }}" data-name="{{ demo.name }}" tabindex="0">
+        <div class="demo-thumb">
+          <img src="{{ demo.thumbnail or '/static/img/placeholder.svg' }}" alt="{{ demo.name }}" loading="lazy" />
+          <span class="badge badge-live">Live Demo</span>
+        </div>
+        <div class="demo-info">
+          <h3 class="demo-name">{{ demo.name }}</h3>
+          {% if demo.description %}
+          <p class="demo-description">{{ demo.description }}</p>
+          {% endif %}
+          <div class="demo-meta">
+            <span class="badge badge-category">{{ category.name }}</span>
+            <span class="view-count" data-view-count>👁 {{ demo.view_count }}</span>
+          </div>
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endfor %}
+{% endblock %}
