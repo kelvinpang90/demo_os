@@ -26,8 +26,8 @@
     <input type="text" name="name" value="{{ demo.name if demo else '' }}" required />
   </label>
   <label>
-    Slug（对应文件目录名）
-    <input type="text" name="slug" value="{{ demo.slug if demo else '' }}" required />
+    Slug（对应文件目录名，留空则根据名称{% if not demo %}或上传的文件夹/ZIP 名{% endif %}自动生成）
+    <input type="text" name="slug" value="{{ demo.slug if demo else '' }}" placeholder="留空自动生成" />
   </label>
   <label>
     所属分类
@@ -58,6 +58,21 @@
     {% endif %}
     <input type="file" name="thumbnail" accept=".jpg,.jpeg,.png,.webp" />
   </div>
+
+  {% if not demo %}
+  <div class="form-field">
+    <span class="form-label">Demo 文件（可选，根目录或唯一顶层文件夹须包含 index.html）</span>
+    <label>
+      上传 ZIP
+      <input type="file" name="zip_file" accept=".zip" />
+    </label>
+    <label>
+      或上传文件夹
+      <input type="file" name="folder_files" webkitdirectory directory multiple />
+    </label>
+    <p class="form-hint">未填写 Slug 时，会优先使用上传的文件夹名 / ZIP 内顶层文件夹名作为 Slug。</p>
+  </div>
+  {% endif %}
 
   <button type="submit" class="cta-button">保存</button>
 </form>

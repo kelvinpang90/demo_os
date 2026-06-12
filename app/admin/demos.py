@@ -1,5 +1,7 @@
+import re
 import shutil
 import tempfile
+import uuid
 import zipfile
 from pathlib import Path
 from urllib.parse import quote
@@ -23,6 +25,25 @@ ALLOWED_THUMBNAIL_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 
 def _demo_dir(slug: str) -> Path:
     return Path(settings.demos_dir) / slug
+
+
+def _slugify(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    return slug or f"demo-{uuid.uuid4().hex[:8]}"
+
+
+def _unique_slug(db: Session, name: str, exclude_id: int | None = None) -> str:
+    base = _slugify(name)
+    slug = base
+    suffix = 1
+    while True:
+        query = select(Demo).where(Demo.slug == slug)
+        if exclude_id is not None:
+            query = query.where(Demo.id != exclude_id)
+        if db.scalar(query) is None:
+            return slug
+        suffix += 1
+        slug = f"{base}-{suffix}"
 
 
 def _safe_extract_zip(zip_path: Path, dest: Path) -> None:
@@ -61,6 +82,40 @@ def _save_thumbnail(slug: str, file: UploadFile) -> str:
     return f"/thumbnails/{dest.name}"
 
 
+def _stage_zip_upload(zip_file: UploadFile, tmp_path: Path) -> tuple[Path, str]:
+    zip_path = tmp_path / "upload.zip"
+    with zip_path.open("wb") as out:
+        shutil.copyfileobj(zip_file.file, out)
+
+    extract_dir = tmp_path / "extracted"
+    _safe_extract_zip(zip_path, extract_dir)
+
+    entries = list(extract_dir.iterdir())
+    if len(entries) == 1 and entries[0].is_dir():
+        return entries[0], entries[0].name
+    return extract_dir, Path(zip_file.filename).stem
+
+
+def _stage_folder_upload(files: list[UploadFile], tmp_path: Path) -> tuple[Path, str | None]:
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    name_hint = None
+    for f in files:
+        parts = Path(f.filename or "").parts
+        if not parts:
+            continue
+        if name_hint is None:
+            name_hint = parts[0]
+        rel_parts = parts[1:] if len(parts) > 1 else parts
+        if not rel_parts or ".." in rel_parts:
+            continue
+        target = staging / Path(*rel_parts)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with target.open("wb") as out:
+            shutil.copyfileobj(f.file, out)
+    return staging, name_hint
+
+
 def _delete_thumbnail(thumbnail_path: str | None) -> None:
     if not thumbnail_path:
         return
@@ -88,37 +143,67 @@ def new_demo_form(request: Request, db: Session = Depends(get_db)):
 def create_demo(
     request: Request,
     name: str = Form(...),
-    slug: str = Form(...),
+    slug: str = Form(""),
     category_id: int = Form(...),
     description: str = Form(""),
     sort_order: int = Form(0),
     thumbnail: UploadFile | None = File(None),
+    zip_file: UploadFile | None = File(None),
+    folder_files: list[UploadFile] | None = File(None),
     db: Session = Depends(get_db),
 ):
-    if db.scalar(select(Demo).where(Demo.slug == slug)):
+    slug = slug.strip()
+
+    def error_response(message: str):
         categories = db.scalars(select(Category).order_by(Category.sort_order, Category.id)).all()
         return templates.TemplateResponse(
             request,
             "admin/demo_form.html",
-            {"demo": None, "categories": categories, "error": "slug 已存在"},
+            {"demo": None, "categories": categories, "error": message},
             status_code=400,
         )
 
-    thumbnail_path = None
-    if thumbnail and thumbnail.filename:
-        thumbnail_path = _save_thumbnail(slug, thumbnail)
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        staged_dir: Path | None = None
+        name_hint: str | None = None
 
-    db.add(
-        Demo(
-            name=name,
-            slug=slug,
-            category_id=category_id,
-            description=description or None,
-            thumbnail_path=thumbnail_path,
-            sort_order=sort_order,
+        if zip_file and zip_file.filename:
+            try:
+                staged_dir, name_hint = _stage_zip_upload(zip_file, tmp_path)
+            except (zipfile.BadZipFile, HTTPException) as exc:
+                detail = "无效的 ZIP 文件" if isinstance(exc, zipfile.BadZipFile) else exc.detail
+                return error_response(detail)
+        elif folder_files and folder_files[0].filename:
+            staged_dir, name_hint = _stage_folder_upload(folder_files, tmp_path)
+
+        if staged_dir is not None and not (staged_dir / "index.html").exists():
+            return error_response("上传内容中未找到 index.html，请检查后重新上传")
+
+        if not slug:
+            slug = _unique_slug(db, name_hint or name)
+        elif db.scalar(select(Demo).where(Demo.slug == slug)):
+            return error_response("slug 已存在")
+
+        thumbnail_path = None
+        if thumbnail and thumbnail.filename:
+            thumbnail_path = _save_thumbnail(slug, thumbnail)
+
+        db.add(
+            Demo(
+                name=name,
+                slug=slug,
+                category_id=category_id,
+                description=description or None,
+                thumbnail_path=thumbnail_path,
+                sort_order=sort_order,
+            )
         )
-    )
-    db.commit()
+        db.commit()
+
+        if staged_dir is not None:
+            _replace_demo_files(slug, staged_dir)
+
     return RedirectResponse("/admin/demos", status_code=303)
 
 
@@ -147,7 +232,7 @@ def update_demo(
     demo_id: int,
     request: Request,
     name: str = Form(...),
-    slug: str = Form(...),
+    slug: str = Form(""),
     category_id: int = Form(...),
     description: str = Form(""),
     sort_order: int = Form(0),
@@ -158,6 +243,10 @@ def update_demo(
     demo = db.get(Demo, demo_id)
     if demo is None:
         raise HTTPException(status_code=404)
+
+    slug = slug.strip()
+    if not slug:
+        slug = _unique_slug(db, name, exclude_id=demo_id)
 
     existing = db.scalar(select(Demo).where(Demo.slug == slug, Demo.id != demo_id))
     if existing:
