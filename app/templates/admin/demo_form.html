@@ -22,8 +22,8 @@
   enctype="multipart/form-data"
 >
   <label>
-    名称
-    <input type="text" name="name" value="{{ demo.name if demo else '' }}" required />
+    名称{% if not demo %}（留空则使用上传的文件夹/ZIP 名）{% endif %}
+    <input type="text" name="name" value="{{ demo.name if demo else '' }}" {% if demo %}required{% else %}placeholder="留空自动生成"{% endif %} />
   </label>
   <label>
     Slug（对应文件目录名，留空则根据名称{% if not demo %}或上传的文件夹/ZIP 名{% endif %}自动生成）

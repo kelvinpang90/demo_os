@@ -27,6 +27,11 @@ def _demo_dir(slug: str) -> Path:
     return Path(settings.demos_dir) / slug
 
 
+def _prettify_name(text: str) -> str:
+    cleaned = re.sub(r"[-_]+", " ", text).strip()
+    return cleaned or text
+
+
 def _slugify(name: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     return slug or f"demo-{uuid.uuid4().hex[:8]}"
@@ -166,7 +171,7 @@ def new_demo_form(request: Request, db: Session = Depends(get_db)):
 @router.post("/new")
 def create_demo(
     request: Request,
-    name: str = Form(...),
+    name: str = Form(""),
     slug: str = Form(""),
     category_id: int = Form(...),
     description: str = Form(""),
@@ -176,6 +181,7 @@ def create_demo(
     folder_files: list[UploadFile] | None = File(None),
     db: Session = Depends(get_db),
 ):
+    name = name.strip()
     slug = slug.strip()
 
     def error_response(message: str):
@@ -203,6 +209,11 @@ def create_demo(
 
         if staged_dir is not None and not (staged_dir / "index.html").exists():
             return error_response("上传内容中未找到 index.html，请检查后重新上传")
+
+        if not name:
+            if not name_hint:
+                return error_response("请填写名称，或上传 ZIP/文件夹以自动识别")
+            name = _prettify_name(name_hint)
 
         if not slug:
             slug = _unique_slug(db, name_hint or name)
