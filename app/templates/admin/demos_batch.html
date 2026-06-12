@@ -1,0 +1,62 @@
+{% extends "admin/base.html" %}
+
+{% block title %}批量上传 Demo{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>批量上传 ZIP</h1>
+  <a href="/admin/demos">&larr; 返回列表</a>
+</div>
+
+<form class="admin-form" method="post" action="/admin/demos/batch" enctype="multipart/form-data">
+  <label>
+    所属分类
+    <select name="category_id" required>
+      {% for category in categories %}
+      <option value="{{ category.id }}">{{ category.name }}</option>
+      {% endfor %}
+    </select>
+  </label>
+
+  <div class="form-field">
+    <span class="form-label">ZIP 文件（可多选，每个 ZIP 须包含 index.html）</span>
+    <input type="file" name="zip_files" accept=".zip" multiple required />
+    <p class="form-hint">每个 ZIP 将创建一条 Demo 记录，名称与 Slug 取自 ZIP 文件名 / 顶层文件夹名，缩略图自动截图生成。</p>
+  </div>
+
+  <button type="submit" class="cta-button">开始上传</button>
+</form>
+
+{% if results is not none %}
+<table class="admin-table">
+  <thead>
+    <tr>
+      <th>文件</th>
+      <th>结果</th>
+      <th>名称</th>
+      <th>Slug</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for r in results %}
+    <tr>
+      <td>{{ r.file }}</td>
+      {% if r.ok %}
+      <td>成功</td>
+      <td>{{ r.name }}</td>
+      <td>{{ r.slug }}</td>
+      {% else %}
+      <td class="form-error">失败：{{ r.error }}</td>
+      <td>—</td>
+      <td>—</td>
+      {% endif %}
+    </tr>
+    {% else %}
+    <tr>
+      <td colspan="4">未上传任何文件</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

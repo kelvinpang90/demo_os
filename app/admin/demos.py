@@ -244,6 +244,61 @@ def create_demo(
     return RedirectResponse("/admin/demos", status_code=303)
 
 
+@router.get("/batch")
+def batch_upload_form(request: Request, db: Session = Depends(get_db)):
+    categories = db.scalars(select(Category).order_by(Category.sort_order, Category.id)).all()
+    return templates.TemplateResponse(
+        request, "admin/demos_batch.html", {"categories": categories, "results": None}
+    )
+
+
+@router.post("/batch")
+def batch_upload(
+    request: Request,
+    category_id: int = Form(...),
+    zip_files: list[UploadFile] = File(...),
+    db: Session = Depends(get_db),
+):
+    results = []
+
+    for zip_file in zip_files:
+        if not zip_file.filename:
+            continue
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            try:
+                staged_dir, name_hint = _stage_zip_upload(zip_file, tmp_path)
+            except (zipfile.BadZipFile, HTTPException) as exc:
+                detail = "无效的 ZIP 文件" if isinstance(exc, zipfile.BadZipFile) else exc.detail
+                results.append({"file": zip_file.filename, "ok": False, "error": detail})
+                continue
+
+            if not (staged_dir / "index.html").exists():
+                results.append(
+                    {"file": zip_file.filename, "ok": False, "error": "未找到 index.html"}
+                )
+                continue
+
+            name = _prettify_name(name_hint) if name_hint else Path(zip_file.filename).stem
+            slug = _unique_slug(db, name_hint or name)
+
+            demo = Demo(name=name, slug=slug, category_id=category_id)
+            db.add(demo)
+            db.commit()
+
+            _replace_demo_files(slug, staged_dir)
+            demo.thumbnail_path = _generate_screenshot(slug)
+            db.commit()
+
+            results.append({"file": zip_file.filename, "ok": True, "name": name, "slug": slug})
+
+    categories = db.scalars(select(Category).order_by(Category.sort_order, Category.id)).all()
+    return templates.TemplateResponse(
+        request, "admin/demos_batch.html", {"categories": categories, "results": results}
+    )
+
+
 @router.get("/{demo_id}/edit")
 def edit_demo_form(demo_id: int, request: Request, db: Session = Depends(get_db)):
     demo = db.get(Demo, demo_id)
