@@ -116,6 +116,30 @@ def _stage_folder_upload(files: list[UploadFile], tmp_path: Path) -> tuple[Path,
     return staging, name_hint
 
 
+def _generate_screenshot(slug: str) -> str | None:
+    index_path = _demo_dir(slug) / "index.html"
+    if not index_path.exists():
+        return None
+
+    thumbnails_dir = Path(settings.thumbnails_dir)
+    thumbnails_dir.mkdir(parents=True, exist_ok=True)
+    dest = thumbnails_dir / f"{slug}.png"
+
+    try:
+        from playwright.sync_api import sync_playwright
+
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            page = browser.new_page(viewport={"width": 1280, "height": 800})
+            page.goto(index_path.resolve().as_uri(), wait_until="load", timeout=15000)
+            page.screenshot(path=str(dest))
+            browser.close()
+    except Exception:
+        return None
+
+    return f"/thumbnails/{dest.name}"
+
+
 def _delete_thumbnail(thumbnail_path: str | None) -> None:
     if not thumbnail_path:
         return
@@ -189,20 +213,22 @@ def create_demo(
         if thumbnail and thumbnail.filename:
             thumbnail_path = _save_thumbnail(slug, thumbnail)
 
-        db.add(
-            Demo(
-                name=name,
-                slug=slug,
-                category_id=category_id,
-                description=description or None,
-                thumbnail_path=thumbnail_path,
-                sort_order=sort_order,
-            )
+        demo = Demo(
+            name=name,
+            slug=slug,
+            category_id=category_id,
+            description=description or None,
+            thumbnail_path=thumbnail_path,
+            sort_order=sort_order,
         )
+        db.add(demo)
         db.commit()
 
         if staged_dir is not None:
             _replace_demo_files(slug, staged_dir)
+            if thumbnail_path is None:
+                demo.thumbnail_path = _generate_screenshot(slug)
+                db.commit()
 
     return RedirectResponse("/admin/demos", status_code=303)
 
@@ -338,6 +364,10 @@ def upload_demo_zip(
                 f"/admin/demos/{demo_id}/edit?error={quote(exc.detail)}", status_code=303
             )
 
+    if demo.thumbnail_path is None:
+        demo.thumbnail_path = _generate_screenshot(demo.slug)
+        db.commit()
+
     return RedirectResponse(
         f"/admin/demos/{demo_id}/edit?msg={quote('文件上传成功')}", status_code=303
     )
@@ -380,6 +410,10 @@ def upload_demo_folder(
             return RedirectResponse(
                 f"/admin/demos/{demo_id}/edit?error={quote(exc.detail)}", status_code=303
             )
+
+    if demo.thumbnail_path is None:
+        demo.thumbnail_path = _generate_screenshot(demo.slug)
+        db.commit()
 
     return RedirectResponse(
         f"/admin/demos/{demo_id}/edit?msg={quote('文件上传成功')}", status_code=303
