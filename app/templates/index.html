@@ -23,7 +23,7 @@
       {% for demo in category.demos %}
       <article class="demo-card" data-slug="{{ demo.slug }}" data-name="{{ demo.name }}" tabindex="0">
         <div class="demo-thumb">
-          <img src="{{ demo.thumbnail or '/static/img/placeholder.svg' }}" alt="{{ demo.name }}" loading="lazy" />
+          <img src="{{ demo.thumbnail_path or '/static/img/placeholder.svg' }}" alt="{{ demo.name }}" loading="lazy" />
           <span class="badge badge-live">Live Demo</span>
         </div>
         <div class="demo-info">
