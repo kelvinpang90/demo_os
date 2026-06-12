@@ -2,6 +2,7 @@ services:
   app:
     build: .
     image: ${IMAGE:-demo-os:latest}
+    container_name: demo_os_backend
     restart: unless-stopped
     env_file:
       - .env
@@ -12,11 +13,15 @@ services:
       - "127.0.0.1:8000:8000"
     networks:
       - default
-      - mysql_net
+      - data_net
+      - proxy_net
 
 networks:
-  # 复用 VPS 上已有 MySQL 容器所在的 docker 网络，
-  # 实际名称请根据 VPS 上 `docker network ls` 的结果调整。
-  mysql_net:
+  # MySQL 容器所在的网络
+  data_net:
     external: true
-    name: mysql_net
+    name: data_net
+  # nginx 反向代理所在的网络，nginx 通过容器名 demo_os_backend:8000 访问本服务。
+  proxy_net:
+    external: true
+    name: proxy_net

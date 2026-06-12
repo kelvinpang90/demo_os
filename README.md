@@ -71,9 +71,13 @@ docker compose up -d
 2. 在该目录下创建 `.env`（参考 `.env.example`）：
    - `DB_HOST` 填写 VPS 上现有 MySQL 容器的容器名/服务名（与 app 容器需在同一 docker 网络）。
    - `IMAGE` 填写 `ghcr.io/<owner>/<repo>:latest`（小写），用于 `docker compose pull` 拉取 CI 构建好的镜像。
-3. 确认 `docker-compose.yml` 中 `mysql_net` 的名称与 VPS 上 MySQL 容器所在的网络一致
-   （`docker network ls` 查看，必要时修改 `docker-compose.yml`）。
-4. 现有 Nginx 反向代理新增一条规则，将 `demo.acuventech.com` 转发到 `127.0.0.1:8000`。
+3. `docker-compose.yml` 中已配置 `data_net`（MySQL 容器所在网络）和 `proxy_net`
+   （Nginx 容器所在网络），与 VPS 上现有 aisearch 项目一致，通常无需修改；
+   如有差异可用 `docker network ls` 核实后调整。
+4. 把 [deploy/nginx/demo_os.conf](deploy/nginx/demo_os.conf) 复制到 Nginx 的 `conf.d` 目录
+   （参照现有 vhost 的部署路径，如 `/srv/infra/nginx/conf.d/demo_os.conf`），
+   reload 后即可通过 `https://demo.acuventech.com` 访问。该配置通过容器名
+   `demo_os_backend:8000` 转发请求，要求 app 容器与 Nginx 容器在同一个 docker 网络（`proxy_net`）。
 
 ### GitHub Actions 自动部署
 
